@@ -1,12 +1,23 @@
-# Vitest Playwright Headless Mode Config Resolution Issue Demo
+https://github.com/vitest-dev/vitest/issues/7661
 
-Vitest Browser's Playwright Provider does not resolve configuration values for headless mode correctly. This repository contains a minimal reproducible example of the issue.
+# TL;DR
+Vitest Browser's Playwright Provider does not seem to resolve configuration values for headless mode correctly. The root value is favoured over the instance value.
+
+| `BrowserConfigOptions.headless` Root Value | `BrowserConfigOptions.instances[].headless` Instance Value | Actual Behaviour | Expected Behaviour |
+|-------------|-------------------------------------|--------------------------------------------------|---------------------
+`true` | `undefined` | Headless | Headless
+`undefined` | `true` | Headed | Headless
+`true` | `false` | Headless | Headed
+
+# Detailed Issue
+
+Here is a more detailed description of the issue.
 
 ## Headless Configuration Settings
 
 In `vitest.config.ts`, the `headless` option can be set in two different places.
 
-1. In [`BrowserConfigOptions.headless`](https://github.com/vitest-dev/vitest/blob/470cbec1f91bd3cb0aa604077fa288c4a6e1c2b9/packages/vitest/src/node/types/browser.ts#L123-L128).
+1. In [`BrowserConfigOptions.headless`](https://github.com/vitest-dev/vitest/blob/470cbec1f91bd3cb0aa604077fa288c4a6e1c2b9/packages/vitest/src/node/types/browser.ts#L123-L128), the root value.
 
 ```ts
 export default defineConfig({
@@ -65,7 +76,7 @@ $ cat test-instance.log | grep -A3 'browserType.launch started'
 ```
 
 You can check the `headless: true | false` output for various scenarios by swapping out the `-c <config file>` argument with the different config files below.
-| Config File | `BrowserConfigOptions.headless` Value | `BrowserConfigOptions.instances[].headless` Value | Actual Behaviour | Expected Behaviour | Notes |
+| Config File | `BrowserConfigOptions.headless` Root Value | `BrowserConfigOptions.instances[].headless` Value | Actual Behaviour | Expected Behaviour | Notes |
 |-------------|-------------------------------------|--------------------------------------------------|---------------------|--------------------|-|
 [vitest.config.headless-browser.ts](https://github.com/delilahw/vitest-playwright-headless-demo/blob/main/vitest.config.headless-browser.ts) | `true` | `undefined` | Headless | Headless | Scenario 1
 [vitest.config.headless-instance.ts](https://github.com/delilahw/vitest-playwright-headless-demo/blob/main/vitest.config.headless-instance.ts) | `undefined` | `true` | Headed | Headless | Scenario 2
@@ -75,7 +86,7 @@ You can check the `headless: true | false` output for various scenarios by swapp
 
 What's causing this discrepancy? Simply put, the `headless` option in `BrowserConfigOptions.instances[]` is not being used in the Playwright Provider.
 
-Let's take a look at [`vitest/packages/browser/src/node/providers/playwright.ts:47-54`](https://github.com/vitest-dev/vitest/blob/470cbec1f91bd3cb0aa604077fa288c4a6e1c2b9/packages/browser/src/node/providers/playwright.ts#L47-L54).
+Let's take a look at [`vitest/packages/browser/src/node/providers/playwright.ts:47-54`](https://github.com/vitest-dev/vitest/blob/470cbec1f91bd3cb0aa604077fa288c4a6e1c2b9/packages/browser/src/node/providers/playwright.ts#L47-L54), containing the following constructor.
 
 ```ts
 export class PlaywrightBrowserProvider implements BrowserProvider {
